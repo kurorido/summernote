@@ -718,6 +718,25 @@ define([
       context.triggerEvent('media.delete', $target, $editable);
     });
 
+    // roliroli
+    this.updateImageProperties = this.wrapCommand(function (imgInfo) {
+      var $img = imgInfo.imgDom;
+      $img.attr('title', imgInfo.title);
+      $img.attr('alt', imgInfo.alt);
+    });
+
+    this.getImageInfo = function () {
+
+      var $img = $(this.restoreTarget());
+
+      return {
+        imgDom: $img,
+        src: $img.attr('src'),
+        alt: $img.attr('alt'),
+        title: $img.attr('title')
+      };
+    };
+
     /**
      * returns whether editable area has focus or not.
      */

@@ -21,11 +21,13 @@ define([
   'summernote/bs3/module/VideoDialog',
   'summernote/bs3/module/HelpDialog',
   'summernote/bs3/module/AirPopover',
-  'summernote/bs3/module/HintPopover'
+  'summernote/bs3/module/HintPopover',
+  'summernote/bs3/module/ImagePropertiesDialog'
 ], function (
   ui, dom, lang,
   Editor, Clipboard, Dropzone, Codeview, Statusbar, Fullscreen, Handle, AutoLink, AutoSync, Placeholder,
-  Buttons, Toolbar, LinkDialog, LinkPopover, ImageDialog, ImagePopover, VideoDialog, HelpDialog, AirPopover, HintPopover
+  Buttons, Toolbar, LinkDialog, LinkPopover, ImageDialog, ImagePopover, VideoDialog, HelpDialog, AirPopover, HintPopover,
+  ImagePropertiesDialog
 ) {
 
   $.summernote = $.extend($.summernote, {
@@ -58,7 +60,8 @@ define([
         'imagePopover': ImagePopover,
         'videoDialog': VideoDialog,
         'helpDialog': HelpDialog,
-        'airPopover': AirPopover
+        'airPopover': AirPopover,
+        'imagePropertiesDialog': ImagePropertiesDialog
       },
 
       buttons: {},
@@ -82,7 +85,8 @@ define([
         image: [
           ['imagesize', ['imageSize100', 'imageSize50', 'imageSize25']],
           ['float', ['floatLeft', 'floatRight', 'floatNone']],
-          ['remove', ['removeMedia']]
+          ['remove', ['removeMedia']],
+          ['imageedit', ['imageEditProperties']]
         ],
         link: [
           ['link', ['linkDialogShow', 'unlink']]

@@ -540,6 +540,15 @@ define([
           click: context.createInvokeHandler('editor.removeMedia')
         }).render();
       });
+
+      context.memo('button.imageEditProperties', function () {
+        return ui.button({
+          contents: ui.icon(options.icons.pencil),
+          tooltip: 'edit properties',
+          click: context.createInvokeHandler('imagePropertiesDialog.show')
+        }).render();
+      });
+
     };
 
     this.addLinkPopoverButtons = function () {
