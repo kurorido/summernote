@@ -6,7 +6,7 @@
  * Copyright 2013-2016 Alan Hong. and other contributors
  * summernote may be freely distributed under the MIT license./
  *
- * Date: 2016-03-29T10:26Z
+ * Date: 2016-03-30T06:53Z
  */
 (function (factory) {
   /* global define */
@@ -4417,11 +4417,23 @@
     });
 
     // roliroli
-    this.editImageProperties = this.wrapCommand(function () {
-      var $target = $(this.restoreTarget());
-      context.triggerEvent('imagePropertiesDialog.show', $target);
-      //console.log('src' + $target.attr('src'));
+    this.updateImageProperties = this.wrapCommand(function (imgInfo) {
+      var $img = imgInfo.imgDom;
+      $img.attr('title', imgInfo.title);
+      $img.attr('alt', imgInfo.alt);
     });
+
+    this.getImageInfo = function () {
+
+      var $img = $(this.restoreTarget());
+
+      return {
+        imgDom: $img,
+        src: $img.attr('src'),
+        alt: $img.attr('alt'),
+        title: $img.attr('title')
+      };
+    };
 
     /**
      * returns whether editable area has focus or not.
@@ -5603,7 +5615,7 @@
         return ui.button({
           contents: ui.icon(options.icons.pencil),
           tooltip: 'edit properties',
-          click: context.createInvokeHandler('editor.editImageProperties')
+          click: context.createInvokeHandler('imagePropertiesDialog.show')
         }).render();
       });
 
@@ -6748,7 +6760,7 @@
                    '<label>Title</label>' +
                    '<input class="note-title-text form-control" type="text" />' +
                  '</div>';
-      var footer = '<button href="#" class="btn btn-primary note-image-properties-btn disabled" disabled>Submit</button>';
+      var footer = '<button href="#" class="btn btn-primary note-image-properties-btn">Submit</button>';
 
       this.$dialog = ui.dialog({
         className: 'image-properties-dialog',
@@ -6775,11 +6787,10 @@
     /**
      * Show link dialog and set event handlers on dialog controls.
      *
-     * @param {Object} linkInfo
+     * @param {Object} imgInfo
      * @return {Promise}
      */
-    this.showLinkDialog = function (linkInfo) {
-      console.log('showLinkDialog');
+    this.showLinkDialog = function (imgInfo) {
       return $.Deferred(function (deferred) {
         var $imageAlt = self.$dialog.find('.note-alt-text'),
         $imageTitle = self.$dialog.find('.note-title-text'),
@@ -6789,19 +6800,20 @@
         ui.onDialogShown(self.$dialog, function () {
           context.triggerEvent('dialog.shown');
 
-          $imageAlt.val($imageAlt.text);
-          $imageTitle.val($imageTitle.text);
+          $imageAlt.val(imgInfo.alt);
+          $imageTitle.val(imgInfo.title);
 
           $imageAlt.on('input', function () {
-            ui.toggleBtn($linkBtn, $imageAlt.val() && $imageAlt.val());
+            //ui.toggleBtn($linkBtn, $imageAlt.val() && $imageAlt.val());
             // if linktext was modified by keyup,
             // stop cloning text from linkUrl
             $imageAlt.text = $imageAlt.val();
           });
 
           $imageTitle.on('input', function () {
-            ui.toggleBtn($linkBtn, $imageTitle.val() && $imageTitle.val());
-          }).val(linkInfo.url).trigger('focus');
+            //ui.toggleBtn($linkBtn, $imageTitle.val() && $imageTitle.val());
+            $imageTitle.text = $imageTitle.val();
+          });
 
           //self.bindEnterKey($linkUrl, $linkBtn);
           //self.bindEnterKey($linkText, $linkBtn);
@@ -6811,7 +6823,8 @@
 
             deferred.resolve({
               alt: $imageAlt.val(),
-              title: $imageTitle.val()
+              title: $imageTitle.val(),
+              imgDom: imgInfo.imgDom
             });
             self.$dialog.modal('hide');
           });
@@ -6835,11 +6848,14 @@
     /**
      * @param {Object} layoutInfo
      */
-    this.show = function (imageDom) {
-      this.showLinkDialog(imageDom).then(function (info) {
-        context.invoke('editor.updateImageProperties', info);
+    this.show = function () {
+
+      var imgInfo = context.invoke('editor.getImageInfo');
+
+      this.showLinkDialog(imgInfo).then(function (imgInfo) {
+        context.invoke('editor.updateImageProperties', imgInfo);
       }).fail(function () {
-        //context.invoke('editor.restoreRange');
+        context.invoke('editor.restoreRange');
       });
     };
     //context.memo('help.linkDialog.show', options.langInfo.help['linkDialog.show']);
