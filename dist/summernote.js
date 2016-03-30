@@ -1,12 +1,12 @@
 /**
- * Super simple wysiwyg editor v0.8.1
+ * Super simple wysiwyg editor v0.8.2
  * http://summernote.org/
  *
  * summernote.js
- * Copyright 2013-2015 Alan Hong. and other contributors
+ * Copyright 2013-2016 Alan Hong. and other contributors
  * summernote may be freely distributed under the MIT license./
  *
- * Date: 2016-02-15T18:35Z
+ * Date: 2016-03-29T10:26Z
  */
 (function (factory) {
   /* global define */
@@ -394,18 +394,18 @@
   var isEdge = /Edge\/\d+/.test(userAgent);
 
   var hasCodeMirror = !!window.CodeMirror;
-  if (!hasCodeMirror && isSupportAmd && require) {
-    if (require.hasOwnProperty('resolve')) {
+  if (!hasCodeMirror && isSupportAmd && typeof require !== 'undefined') {
+    if (typeof require.resolve !== 'undefined') {
       try {
         // If CodeMirror can't be resolved, `require.resolve` will throw an
         // exception and `hasCodeMirror` won't be set to `true`.
         require.resolve('codemirror');
         hasCodeMirror = true;
       } catch (e) {
-        hasCodeMirror = false;
+        // Do nothing.
       }
-    } else if (require.hasOwnProperty('specified')) {
-      hasCodeMirror = require.specified('codemirror');
+    } else if (typeof eval('require').specified !== 'undefined') {
+      hasCodeMirror = eval('require').specified('codemirror');
     }
   }
 
@@ -1730,6 +1730,7 @@
 
       options = $.extend({}, $.summernote.options, options);
       options.langInfo = $.extend(true, {}, $.summernote.lang['en-US'], $.summernote.lang[options.lang]);
+      options.icons = $.extend(true, {}, $.summernote.options.icons, options.icons);
 
       this.each(function (idx, note) {
         var $note = $(note);
@@ -3744,8 +3745,12 @@
         }
         context.triggerEvent('keydown', event);
 
-        if (options.shortcuts && !event.isDefaultPrevented()) {
-          self.handleKeyMap(event);
+        if (!event.isDefaultPrevented()) {
+          if (options.shortcuts) {
+            self.handleKeyMap(event);
+          } else {
+            self.preventDefaultEditableShortCuts(event);
+          }
         }
       }).on('keyup', function (event) {
         context.triggerEvent('keyup', event);
@@ -3779,14 +3784,19 @@
         context.triggerEvent('focusout', event);
       });
 
-      if (!options.airMode && options.height) {
-        this.setHeight(options.height);
-      }
-      if (!options.airMode && options.maxHeight) {
-        $editable.css('max-height', options.maxHeight);
-      }
-      if (!options.airMode && options.minHeight) {
-        $editable.css('min-height', options.minHeight);
+      if (!options.airMode) {
+        if (options.width) {
+          $editor.outerWidth(options.width);
+        }
+        if (options.height) {
+          $editable.outerHeight(options.height);
+        }
+        if (options.maxHeight) {
+          $editable.css('max-height', options.maxHeight);
+        }
+        if (options.minHeight) {
+          $editable.css('min-height', options.minHeight);
+        }
       }
 
       history.recordUndo();
@@ -3815,6 +3825,14 @@
         context.invoke(eventName);
       } else if (key.isEdit(event.keyCode)) {
         this.afterCommand();
+      }
+    };
+
+    this.preventDefaultEditableShortCuts = function (event) {
+      // B(Bold, 66) / I(Italic, 73) / U(Underline, 85)
+      if ((event.ctrlKey || event.metaKey) &&
+        list.contains([66, 73, 85], event.keyCode)) {
+        event.preventDefault();
       }
     };
 
@@ -4398,6 +4416,13 @@
       context.triggerEvent('media.delete', $target, $editable);
     });
 
+    // roliroli
+    this.editImageProperties = this.wrapCommand(function () {
+      var $target = $(this.restoreTarget());
+      context.triggerEvent('imagePropertiesDialog.show', $target);
+      //console.log('src' + $target.attr('src'));
+    });
+
     /**
      * returns whether editable area has focus or not.
      */
@@ -4429,13 +4454,6 @@
      */
     this.empty = function () {
       context.invoke('code', dom.emptyPara);
-    };
-
-    /**
-     * set height for editable
-     */
-    this.setHeight = function (height) {
-      $editable.outerHeight(height);
     };
   };
 
@@ -5055,6 +5073,9 @@
     var invertedKeyMap = func.invertObject(options.keyMap[agent.isMac ? 'mac' : 'pc']);
 
     var representShortcut = this.representShortcut = function (editorMethod) {
+      if (!options.shortcuts) {
+        return '';
+      }
       var shortcut = invertedKeyMap[editorMethod];
       if (agent.isMac) {
         shortcut = shortcut.replace('CMD', '⌘').replace('SHIFT', '⇧');
@@ -5105,7 +5126,7 @@
             template: function (item) {
 
               if (typeof item === 'string') {
-                item = { tag: item, title: item };
+                item = { tag: item, title: (lang.style.hasOwnProperty(item) ? lang.style[item] : item) };
               }
 
               var tag = item.tag;
@@ -5441,7 +5462,7 @@
       context.memo('button.link', function () {
         return ui.button({
           contents: ui.icon(options.icons.link),
-          tooltip: lang.link.link,
+          tooltip: lang.link.link + representShortcut('linkDialog.show'),
           click: context.createInvokeHandler('linkDialog.show')
         }).render();
       });
@@ -5577,6 +5598,15 @@
           click: context.createInvokeHandler('editor.removeMedia')
         }).render();
       });
+
+      context.memo('button.imageEditProperties', function () {
+        return ui.button({
+          contents: ui.icon(options.icons.pencil),
+          tooltip: 'edit properties',
+          click: context.createInvokeHandler('editor.editImageProperties')
+        }).render();
+      });
+
     };
 
     this.addLinkPopoverButtons = function () {
@@ -6017,7 +6047,7 @@
                    '<input class="note-image-input form-control" type="file" name="files" accept="image/*" multiple="multiple" />' +
                    imageLimitation +
                  '</div>' +
-                 '<div class="form-group" style="overflow:auto;">' +
+                 '<div class="form-group note-group-image-url" style="overflow:auto;">' +
                    '<label>' + lang.image.url + '</label>' +
                    '<input class="note-image-url form-control col-md-12" type="text" />' +
                  '</div>';
@@ -6356,9 +6386,9 @@
 
       var body = [
         '<p class="text-center">',
-        '<a href="//summernote.org/" target="_blank">Summernote 0.8.1</a> · ',
-        '<a href="//github.com/summernote/summernote" target="_blank">Project</a> · ',
-        '<a href="//github.com/summernote/summernote/issues" target="_blank">Issues</a>',
+        '<a href="http://summernote.org/" target="_blank">Summernote 0.8.2</a> · ',
+        '<a href="https://github.com/summernote/summernote" target="_blank">Project</a> · ',
+        '<a href="https://github.com/summernote/summernote/issues" target="_blank">Issues</a>',
         '</p>'
       ].join('');
 
@@ -6699,9 +6729,125 @@
     };
   };
 
+  var ImagePropertiesDialog = function (context) {
+    var self = this;
+    var ui = $.summernote.ui;
+
+    var $editor = context.layoutInfo.editor;
+    var options = context.options;
+    //var lang = options.langInfo;
+
+    this.initialize = function () {
+      var $container = options.dialogsInBody ? $(document.body) : $editor;
+
+      var body = '<div class="form-group">' +
+                   '<label>Alt</label>' +
+                   '<input class="note-alt-text form-control" type="text" />' +
+                 '</div>' +
+                 '<div class="form-group">' +
+                   '<label>Title</label>' +
+                   '<input class="note-title-text form-control" type="text" />' +
+                 '</div>';
+      var footer = '<button href="#" class="btn btn-primary note-image-properties-btn disabled" disabled>Submit</button>';
+
+      this.$dialog = ui.dialog({
+        className: 'image-properties-dialog',
+        title: 'Modify Image Properties',
+        fade: options.dialogsFade,
+        body: body,
+        footer: footer
+      }).render().appendTo($container);
+    };
+
+    this.destroy = function () {
+      ui.hideDialog(this.$dialog);
+      this.$dialog.remove();
+    };
+
+    this.bindEnterKey = function ($input, $btn) {
+      $input.on('keypress', function (event) {
+        if (event.keyCode === key.code.ENTER) {
+          $btn.trigger('click');
+        }
+      });
+    };
+
+    /**
+     * Show link dialog and set event handlers on dialog controls.
+     *
+     * @param {Object} linkInfo
+     * @return {Promise}
+     */
+    this.showLinkDialog = function (linkInfo) {
+      console.log('showLinkDialog');
+      return $.Deferred(function (deferred) {
+        var $imageAlt = self.$dialog.find('.note-alt-text'),
+        $imageTitle = self.$dialog.find('.note-title-text'),
+        $linkBtn = self.$dialog.find('.note-image-properties-btn');
+        //$openInNewWindow = self.$dialog.find('input[type=checkbox]');
+
+        ui.onDialogShown(self.$dialog, function () {
+          context.triggerEvent('dialog.shown');
+
+          $imageAlt.val($imageAlt.text);
+          $imageTitle.val($imageTitle.text);
+
+          $imageAlt.on('input', function () {
+            ui.toggleBtn($linkBtn, $imageAlt.val() && $imageAlt.val());
+            // if linktext was modified by keyup,
+            // stop cloning text from linkUrl
+            $imageAlt.text = $imageAlt.val();
+          });
+
+          $imageTitle.on('input', function () {
+            ui.toggleBtn($linkBtn, $imageTitle.val() && $imageTitle.val());
+          }).val(linkInfo.url).trigger('focus');
+
+          //self.bindEnterKey($linkUrl, $linkBtn);
+          //self.bindEnterKey($linkText, $linkBtn);
+
+          $linkBtn.one('click', function (event) {
+            event.preventDefault();
+
+            deferred.resolve({
+              alt: $imageAlt.val(),
+              title: $imageTitle.val()
+            });
+            self.$dialog.modal('hide');
+          });
+        });
+
+        ui.onDialogHidden(self.$dialog, function () {
+          // detach events
+          $imageAlt.off('input keypress');
+          $imageTitle.off('input keypress');
+          $linkBtn.off('click');
+
+          if (deferred.state() === 'pending') {
+            deferred.reject();
+          }
+        });
+
+        ui.showDialog(self.$dialog);
+      }).promise();
+    };
+
+    /**
+     * @param {Object} layoutInfo
+     */
+    this.show = function (imageDom) {
+      this.showLinkDialog(imageDom).then(function (info) {
+        context.invoke('editor.updateImageProperties', info);
+      }).fail(function () {
+        //context.invoke('editor.restoreRange');
+      });
+    };
+    //context.memo('help.linkDialog.show', options.langInfo.help['linkDialog.show']);
+  };
+
 
   $.summernote = $.extend($.summernote, {
-    version: '0.8.1',
+    version: '0.8.2',
     ui: ui,
 
     plugins: {},
@@ -6729,7 +6875,8 @@
         'imagePopover': ImagePopover,
         'videoDialog': VideoDialog,
         'helpDialog': HelpDialog,
-        'airPopover': AirPopover
+        'airPopover': AirPopover,
+        'imagePropertiesDialog': ImagePropertiesDialog
       },
 
       buttons: {},
@@ -6753,7 +6900,8 @@
         image: [
           ['imagesize', ['imageSize100', 'imageSize50', 'imageSize25']],
           ['float', ['floatLeft', 'floatRight', 'floatNone']],
-          ['remove', ['removeMedia']]
+          ['remove', ['removeMedia']],
+          ['imageedit', ['imageEditProperties']]
         ],
         link: [
           ['link', ['linkDialogShow', 'unlink']]
